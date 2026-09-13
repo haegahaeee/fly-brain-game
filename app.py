@@ -109,7 +109,7 @@ if btn_next:
         ax_game.set_xlim(0, 30)
         ax_game.set_ylim(0, 20)
         
-                if os.path.exists("fly.png"):
+        if os.path.exists("fly.png"):
             img = plt.imread("fly.png")
             ax_game.imshow(img, extent=[1.5, 4.5, bird_y - 1.5, bird_y + 1.5], zorder=3)
         else:
