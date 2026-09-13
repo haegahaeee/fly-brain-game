@@ -109,15 +109,8 @@ if btn_next:
         ax_game.set_xlim(0, 30)
         ax_game.set_ylim(0, 20)
         
-        # デスクトップの指定場所に画像があるかチェック
-        target_path = None
-        if os.path.exists(desktop_path):
-            target_path = desktop_path
-        elif os.path.exists(onedrive_path):
-            target_path = onnedrive_path
-            
-        if target_path:
-            img = plt.imread(target_path)
+                if os.path.exists("fly.png"):
+            img = plt.imread("fly.png")
             ax_game.imshow(img, extent=[1.5, 4.5, bird_y - 1.5, bird_y + 1.5], zorder=3)
         else:
             ax_game.text(3, bird_y, "O", fontsize=18, ha='center', va='center', color='red') 
