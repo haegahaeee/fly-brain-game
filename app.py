@@ -7,16 +7,11 @@ import os
 import numpy as np
 import urllib.request
 import matplotlib.font_manager as fm
-import streamlit as st
-import networkx as nx
-import random
-import time
-import matplotlib.pyplot as plt
-import japanize_matplotlib  # ← これを追加するだけでMatplotlib全体が日本語対応します！
-import os
-import numpy as np
-# 日本語フォント（IPAexGothic）のダウンロードとプロパティ設定
+
+# ---- 日本語フォント（IPAexゴシック）の設定 ----
 FONT_PATH = "IPAexGothic.ttf"
+
+# フォントがなければ自動ダウンロード
 if not os.path.exists(FONT_PATH):
     font_url = "https://github.com/google/fonts/raw/main/ofl/ipaexgothic/IPAexGothic.ttf"
     try:
@@ -24,11 +19,11 @@ if not os.path.exists(FONT_PATH):
     except Exception:
         pass
 
-# 確実に日本語を適用するためのFontPropertiesオブジェクト作成
+# Matplotlibのフォントマネージャーに登録してデフォルト設定
 if os.path.exists(FONT_PATH):
-    fp = fm.FontProperties(fname=FONT_PATH)
-else:
-    fp = None
+    fm.fontManager.addfont(FONT_PATH)
+    font_prop = fm.FontProperties(fname=FONT_PATH)
+    plt.rcParams['font.family'] = font_prop.get_name()
 
 # ページの初期設定
 st.set_page_config(page_title="ハエ生体脳 vs Q学習AI シミュレーター", layout="wide")
@@ -195,7 +190,6 @@ if btn_next:
     placeholder = st.empty()
     
     img = plt.imread(active_img_path) if active_img_path else None
-    fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
 
     while not game_over:
         step_count += 1
@@ -235,9 +229,7 @@ if btn_next:
 
         # 2ステップに1回描画（高速化）
         if step_count % 2 == 0 or game_over:
-            ax_game.clear()
-            ax_graph.clear()
-            ax_brain.clear()
+            fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
             
             # 1. ゲーム画面
             ax_game.set_xlim(0, 30)
@@ -249,7 +241,7 @@ if btn_next:
                 
             ax_game.bar(pipe_x, pipe_y, width=2, color='green')
             ax_game.bar(pipe_x, 20 - (pipe_y + pipe_gap), width=2, bottom=pipe_y + pipe_gap, color='green')
-            ax_game.set_title(f"{gen_label} | スコア: {score}", fontproperties=fp)
+            ax_game.set_title(f"{gen_label} | スコア: {score}")
             ax_game.set_xticks([]); ax_game.set_yticks([])
             
             # 2. スコア学習曲線グラフ
@@ -262,13 +254,11 @@ if btn_next:
                 
             max_len = max(10, len(st.session_state.fly_scores), len(st.session_state.q_scores))
             ax_graph.set_xlim(0.5, max_len + 0.5)
-            ax_graph.set_title("AI学習パフォーマンス比較", fontproperties=fp)
-            ax_graph.set_xlabel("試行回数 / 世代", fontproperties=fp)
-            ax_graph.set_ylabel("スコア", fontproperties=fp)
+            ax_graph.set_title("AI学習パフォーマンス比較")
+            ax_graph.set_xlabel("試行回数 / 世代")
+            ax_graph.set_ylabel("スコア")
             if st.session_state.fly_scores or st.session_state.q_scores:
-                legend = ax_graph.legend(loc='upper left')
-                for text in legend.get_texts():
-                    text.set_fontproperties(fp)
+                ax_graph.legend(loc='upper left')
             ax_graph.grid(True)
             
             # 3. 脳神経回路 / Q学習状態表示
@@ -286,21 +276,20 @@ if btn_next:
                         
                 nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
                 nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
-                ax_brain.set_title("ハエのコネクトーム（脳回路）", fontproperties=fp)
-                ax_brain.text(0, -1.2, "アクション: ジャンプ！" if is_jump else "状態: 巡航中...", fontsize=13, fontweight='bold', color="crimson" if is_jump else "gray", ha='center', fontproperties=fp)
+                ax_brain.set_title("ハエのコネクトーム（脳回路）")
+                ax_brain.text(0, -1.2, "アクション: ジャンプ！" if is_jump else "状態: 巡航中...", fontsize=13, fontweight='bold', color="crimson" if is_jump else "gray", ha='center')
             else:
-                ax_brain.set_title("Q学習の学習状態", fontproperties=fp)
+                ax_brain.set_title("Q学習の学習状態")
                 states_count = len(st.session_state.q_agent.q_table)
-                ax_brain.text(0.5, 0.6, f"学習済み状態数: {states_count}", fontsize=14, ha='center', fontproperties=fp)
-                ax_brain.text(0.5, 0.4, f"アクション: {'ジャンプ' if is_jump else '維持'}", fontsize=14, fontweight='bold', color='limegreen' if is_jump else 'blue', ha='center', fontproperties=fp)
+                ax_brain.text(0.5, 0.6, f"学習済み状態数: {states_count}", fontsize=14, ha='center')
+                ax_brain.text(0.5, 0.4, f"アクション: {'ジャンプ' if is_jump else '維持'}", fontsize=14, fontweight='bold', color='limegreen' if is_jump else 'blue', ha='center')
             
             ax_brain.axis('off')
             
             with placeholder.container():
                 st.pyplot(fig)
+            plt.close(fig)
             
-    plt.close(fig)
-        
     # スコア保存と学習
     if is_fly_mode:
         st.session_state.fly_scores.append(score)
@@ -317,7 +306,7 @@ if btn_next:
 if not btn_next:
     fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
     
-    ax_game.text(15, 10, "準備完了", fontsize=18, color='gray', ha='center', va='center', fontproperties=fp)
+    ax_game.text(15, 10, "準備完了", fontsize=18, color='gray', ha='center', va='center')
     ax_game.set_xlim(0, 30); ax_game.set_ylim(0, 20)
     ax_game.set_xticks([]); ax_game.set_yticks([])
     
@@ -328,18 +317,16 @@ if not btn_next:
         ax_graph.plot(range(1, len(st.session_state.q_scores) + 1), st.session_state.q_scores, 
                       marker='s', color='limegreen', label='普通のQ学習AI', linewidth=2)
         
-    ax_graph.set_title("AI学習パフォーマンス比較", fontproperties=fp)
-    ax_graph.set_xlabel("試行回数 / 世代", fontproperties=fp)
-    ax_graph.set_ylabel("スコア", fontproperties=fp)
+    ax_graph.set_title("AI学習パフォーマンス比較")
+    ax_graph.set_xlabel("試行回数 / 世代")
+    ax_graph.set_ylabel("スコア")
     if st.session_state.fly_scores or st.session_state.q_scores:
-        legend = ax_graph.legend(loc='upper left')
-        for text in legend.get_texts():
-            text.set_fontproperties(fp)
+        ax_graph.legend(loc='upper left')
     ax_graph.grid(True)
     
     nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='gray', node_size=150)
     nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
-    ax_brain.set_title("ハエのコネクトーム（脳回路）", fontproperties=fp)
+    ax_brain.set_title("ハエのコネクトーム（脳回路）")
     ax_brain.axis('off')
     
     st.pyplot(fig)
