@@ -3,16 +3,13 @@ import networkx as nx
 import random
 import time
 import matplotlib.pyplot as plt
-import matplotlib_fontja
 import os
 import numpy as np
 import urllib.request
 import matplotlib.font_manager as fm
 
-# ---- 日本語フォント（IPAexゴシック）の設定 ----
+# ---- 日本語フォント（IPAexゴシック）の自動設定 ----
 FONT_PATH = "IPAexGothic.ttf"
-
-# フォントがなければ自動ダウンロード
 if not os.path.exists(FONT_PATH):
     font_url = "https://github.com/google/fonts/raw/main/ofl/ipaexgothic/IPAexGothic.ttf"
     try:
@@ -20,7 +17,6 @@ if not os.path.exists(FONT_PATH):
     except Exception:
         pass
 
-# Matplotlibのフォントマネージャーに登録してデフォルト設定
 if os.path.exists(FONT_PATH):
     fm.fontManager.addfont(FONT_PATH)
     font_prop = fm.FontProperties(fname=FONT_PATH)
@@ -275,60 +271,4 @@ if btn_next:
                         node_colors.append('#D3D3D3')
                         node_sizes.append(150)
                         
-                nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
-                nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
-                ax_brain.set_title("ハエのコネクトーム（脳回路）")
-                ax_brain.text(0, -1.2, "アクション: ジャンプ！" if is_jump else "状態: 巡航中...", fontsize=13, fontweight='bold', color="crimson" if is_jump else "gray", ha='center')
-            else:
-                ax_brain.set_title("Q学習の学習状態")
-                states_count = len(st.session_state.q_agent.q_table)
-                ax_brain.text(0.5, 0.6, f"学習済み状態数: {states_count}", fontsize=14, ha='center')
-                ax_brain.text(0.5, 0.4, f"アクション: {'ジャンプ' if is_jump else '維持'}", fontsize=14, fontweight='bold', color='limegreen' if is_jump else 'blue', ha='center')
-            
-            ax_brain.axis('off')
-            
-            with placeholder.container():
-                st.pyplot(fig)
-            plt.close(fig)
-            
-    # スコア保存と学習
-    if is_fly_mode:
-        st.session_state.fly_scores.append(score)
-        if score >= st.session_state.best_fly_score:
-            st.session_state.best_fly_score = score
-            st.session_state.best_fly_brain = st.session_state.current_fly_brain
-        st.session_state.current_fly_brain = st.session_state.best_fly_brain.mutate()
-    else:
-        st.session_state.q_scores.append(score)
-        
-    st.rerun()
-
-# 7. 初期 / 待機画面
-if not btn_next:
-    fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
-    
-    ax_game.text(15, 10, "準備完了", fontsize=18, color='gray', ha='center', va='center')
-    ax_game.set_xlim(0, 30); ax_game.set_ylim(0, 20)
-    ax_game.set_xticks([]); ax_game.set_yticks([])
-    
-    if st.session_state.fly_scores:
-        ax_graph.plot(range(1, len(st.session_state.fly_scores) + 1), st.session_state.fly_scores, 
-                      marker='o', color='deeppink', label='ハエ生体脳AI', linewidth=2)
-    if st.session_state.q_scores:
-        ax_graph.plot(range(1, len(st.session_state.q_scores) + 1), st.session_state.q_scores, 
-                      marker='s', color='limegreen', label='普通のQ学習AI', linewidth=2)
-        
-    ax_graph.set_title("AI学習パフォーマンス比較")
-    ax_graph.set_xlabel("試行回数 / 世代")
-    ax_graph.set_ylabel("スコア")
-    if st.session_state.fly_scores or st.session_state.q_scores:
-        ax_graph.legend(loc='upper left')
-    ax_graph.grid(True)
-    
-    nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='gray', node_size=150)
-    nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
-    ax_brain.set_title("ハエのコネクトーム（脳回路）")
-    ax_brain.axis('off')
-    
-    st.pyplot(fig)
-    plt.close(fig)
+                nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node
