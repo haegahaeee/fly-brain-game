@@ -118,12 +118,12 @@ if btn_next:
         step_count += 1
         is_jump, signal_intensity = st.session_state.current_brain.decide_action(bird_y, pipe_x, pipe_y)
         
-        # ⚡ 高速かつスムーズな移動量設定
+        # 移動量（スピード）を大きめに変更
         if is_jump:
-            bird_y += 0.9
+            bird_y += 1.4
         else:
-            bird_y -= 0.6
-        pipe_x -= 0.8
+            bird_y -= 0.9
+        pipe_x -= 1.2
         
         if pipe_x < 0:
             pipe_x = 30.0
@@ -135,70 +135,71 @@ if btn_next:
         if 1 <= pipe_x <= 4 and (bird_y < pipe_y or bird_y > pipe_y + pipe_gap): 
             game_over = True
         
-        # 画面のクリア処理
-        ax_game.clear()
-        ax_graph.clear()
-        ax_brain.clear()
-        
-        # 1. プレイ画面
-        ax_game.set_xlim(0, 30)
-        ax_game.set_ylim(0, 20)
-        if img is not None:
-            ax_game.imshow(img, extent=[1.5, 4.5, bird_y - 1.5, bird_y + 1.5], zorder=3)
-        else:
-            ax_game.text(3, bird_y, "🪰", fontsize=24, ha='center', va='center') 
+        # 🚀 画面描画の更新頻度を落として表示を爆速化（2ステップに1回描画）
+        if step_count % 2 == 0 or game_over:
+            ax_game.clear()
+            ax_graph.clear()
+            ax_brain.clear()
             
-        ax_game.bar(pipe_x, pipe_y, width=2, color='green')
-        ax_game.bar(pipe_x, 20 - (pipe_y + pipe_gap), width=2, bottom=pipe_y + pipe_gap, color='green')
-        ax_game.set_title(f"Fly No.{st.session_state.generation} | Score: {score}")
-        ax_game.set_xticks([])
-        ax_game.set_yticks([])
-        
-        # 2. スコア学習グラフ
-        temp_history = st.session_state.history_scores + [score]
-        ax_graph.plot(range(1, len(temp_history) + 1), temp_history, marker='o', color='dodgerblue', linewidth=2)
-        ax_graph.set_xlim(0.5, max(10, len(temp_history)) + 0.5)
-        ax_graph.set_ylim(-0.5, max(temp_history) + 3)
-        ax_graph.set_title("Fly Brain AI Learning Progress")
-        ax_graph.set_xlabel("Gen (Fly No.)")
-        ax_graph.set_ylabel("Score")
-        ax_graph.grid(True)
-        
-        # 3. 脳神経ネットワーク描画 ＋ 思考メッセージ
-        active_idx = step_count % len(nodes_list)
-        node_colors = []
-        node_sizes = []
-        
-        for i in range(len(nodes_list)):
-            if i == active_idx:
-                node_colors.append('#FF1493' if is_jump else '#00FFFF')
-                node_sizes.append(280)
-            elif i == (active_idx - 1) % len(nodes_list):
-                node_colors.append('#FFB6C1' if is_jump else '#E0FFFF')
-                node_sizes.append(200)
+            # 1. プレイ画面
+            ax_game.set_xlim(0, 30)
+            ax_game.set_ylim(0, 20)
+            if img is not None:
+                ax_game.imshow(img, extent=[1.5, 4.5, bird_y - 1.5, bird_y + 1.5], zorder=3)
             else:
-                node_colors.append('#D3D3D3')
-                node_sizes.append(150)
+                ax_game.text(3, bird_y, "🪰", fontsize=24, ha='center', va='center') 
+                
+            ax_game.bar(pipe_x, pipe_y, width=2, color='green')
+            ax_game.bar(pipe_x, 20 - (pipe_y + pipe_gap), width=2, bottom=pipe_y + pipe_gap, color='green')
+            ax_game.set_title(f"Fly No.{st.session_state.generation} | Score: {score}")
+            ax_game.set_xticks([])
+            ax_game.set_yticks([])
+            
+            # 2. スコア学習グラフ
+            temp_history = st.session_state.history_scores + [score]
+            ax_graph.plot(range(1, len(temp_history) + 1), temp_history, marker='o', color='dodgerblue', linewidth=2)
+            ax_graph.set_xlim(0.5, max(10, len(temp_history)) + 0.5)
+            ax_graph.set_ylim(-0.5, max(temp_history) + 3)
+            ax_graph.set_title("Fly Brain AI Learning Progress")
+            ax_graph.set_xlabel("Gen (Fly No.)")
+            ax_graph.set_ylabel("Score")
+            ax_graph.grid(True)
+            
+            # 3. 脳神経ネットワーク描画 ＋ 思考メッセージ
+            active_idx = step_count % len(nodes_list)
+            node_colors = []
+            node_sizes = []
+            
+            for i in range(len(nodes_list)):
+                if i == active_idx:
+                    node_colors.append('#FF1493' if is_jump else '#00FFFF')
+                    node_sizes.append(280)
+                elif i == (active_idx - 1) % len(nodes_list):
+                    node_colors.append('#FFB6C1' if is_jump else '#E0FFFF')
+                    node_sizes.append(200)
+                else:
+                    node_colors.append('#D3D3D3')
+                    node_sizes.append(150)
 
-        if is_jump:
-            thought_text = "Action: JUMP!"
-            thought_color = "crimson"
-        elif pipe_x < 15:
-            thought_text = "State: Danger (Pipe Near)"
-            thought_color = "darkorange"
-        else:
-            thought_text = "State: Cruising..."
-            thought_color = "gray"
-        
-        nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
-        nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
-        
-        ax_brain.set_title("Fly Connectome Network")
-        ax_brain.text(0, -1.2, thought_text, fontsize=13, fontweight='bold', color=thought_color, ha='center')
-        ax_brain.axis('off')
-        
-        with placeholder.container():
-            st.pyplot(fig)
+            if is_jump:
+                thought_text = "Action: JUMP!"
+                thought_color = "crimson"
+            elif pipe_x < 15:
+                thought_text = "State: Danger (Pipe Near)"
+                thought_color = "darkorange"
+            else:
+                thought_text = "State: Cruising..."
+                thought_color = "gray"
+            
+            nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
+            nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
+            
+            ax_brain.set_title("Fly Connectome Network")
+            ax_brain.text(0, -1.2, thought_text, fontsize=13, fontweight='bold', color=thought_color, ha='center')
+            ax_brain.axis('off')
+            
+            with placeholder.container():
+                st.pyplot(fig)
             
     plt.close(fig)
         
@@ -209,31 +210,3 @@ if btn_next:
         st.session_state.best_brain = st.session_state.current_brain
         
     st.session_state.current_brain = st.session_state.best_brain.mutate()
-    st.rerun()
-
-# 7. ゲームオーバー後の表示
-if st.session_state.generation > 0 and not btn_next:
-    fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
-    
-    ax_game.text(15, 10, "Game Over", fontsize=20, color='red', ha='center', va='center')
-    ax_game.set_xlim(0, 30)
-    ax_game.set_ylim(0, 20)
-    ax_game.set_xticks([])
-    ax_game.set_yticks([])
-    
-    ax_graph.plot(range(1, len(st.session_state.history_scores) + 1), st.session_state.history_scores, marker='o', color='dodgerblue', linewidth=2)
-    ax_graph.set_xlim(0.5, max(10, len(st.session_state.history_scores)) + 0.5)
-    ax_graph.set_ylim(-0.5, max(st.session_state.history_scores) + 3)
-    ax_graph.set_title("Fly Brain AI Learning Progress")
-    ax_graph.set_xlabel("Gen (Fly No.)")
-    ax_graph.set_ylabel("Score")
-    ax_graph.grid(True)
-    
-    nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='gray', node_size=150)
-    nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
-    ax_brain.set_title("Fly Connectome Network")
-    ax_brain.text(0, -1.2, "State: CRASHED!", fontsize=13, fontweight='bold', color='black', ha='center')
-    ax_brain.axis('off')
-    
-    st.pyplot(fig)
-    plt.close(fig)
