@@ -7,7 +7,14 @@ import os
 import numpy as np
 import urllib.request
 import matplotlib.font_manager as fm
-
+import streamlit as st
+import networkx as nx
+import random
+import time
+import matplotlib.pyplot as plt
+import japanize_matplotlib  # ← これを追加するだけでMatplotlib全体が日本語対応します！
+import os
+import numpy as np
 # 日本語フォント（IPAexGothic）のダウンロードとプロパティ設定
 FONT_PATH = "IPAexGothic.ttf"
 if not os.path.exists(FONT_PATH):
