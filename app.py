@@ -37,8 +37,8 @@ class FlyBrainAI:
         self.distance_weight = random.uniform(0.5, 1.5)
 
     def decide_action(self, bird_y, pipe_x, pipe_y):
-        if bird_y > 15: return False
-        if bird_y < 5: return True
+        if bird_y > 15: return False, 0.0, False
+        if bird_y < 5: return True, 1.0, True
         
         base_signal = random.random() * self.network.number_of_nodes()
         if pipe_x < 15:
@@ -46,7 +46,11 @@ class FlyBrainAI:
             brain_signal = base_signal + (height_diff * self.distance_weight)
         else:
             brain_signal = base_signal
-        return brain_signal > self.jump_threshold
+            
+        is_jump = brain_signal > self.jump_threshold
+        # シグナル強度（0.0〜1.0）とジャンプフラグを返却
+        signal_intensity = min(1.0, max(0.0, brain_signal / 20.0))
+        return is_jump, signal_intensity, is_jump
 
     def mutate(self):
         child = FlyBrainAI(self.network)
@@ -91,7 +95,7 @@ if btn_reset:
     st.session_state.current_brain = st.session_state.best_brain
     st.success("🔄 脳の進化と記録をリセットしました！1回目から再開できます。")
 
-# ネットワーク描画用のレイアウト計算（シード固定で位置変更を防止）
+# ネットワーク描画用のレイアウト計算（位置固定）
 pos = nx.spring_layout(base_network, seed=42)
 
 # 6. ゲーム実行・シミュレーション処理
@@ -108,7 +112,10 @@ if btn_next:
     img = plt.imread(img_path) if img_path else None
 
     while not game_over:
-        if st.session_state.current_brain.decide_action(bird_y, pipe_x, pipe_y):
+        # AIの意思決定（シグナル情報も取得）
+        is_jump, signal_intensity, is_firing = st.session_state.current_brain.decide_action(bird_y, pipe_x, pipe_y)
+        
+        if is_jump:
             bird_y += 1.4  
         else:
             bird_y -= 1.0  
@@ -150,10 +157,24 @@ if btn_next:
         ax_graph.set_ylabel("Score")
         ax_graph.grid(True)
         
-        # 3. ハエ脳神経ネットワーク描画
-        nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='orchid', node_size=150)
-        nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
-        ax_brain.set_title("Fly Connectome Network")
+        # 3. リアルタイム発火型 脳神経ネットワーク描画
+        if is_firing:
+            # ジャンプ時：黄色に激しく発火
+            node_color = '#FFD700' 
+            edge_color = '#FFA500'
+            status_text = "⚡ JUMP (Firing!)"
+        else:
+            # 感覚入力に応じた赤〜紫のグラデーション発光
+            r = int(186 + (255 - 186) * signal_intensity)
+            g = int(85 * (1.0 - signal_intensity))
+            b = int(211 * (1.0 - signal_intensity))
+            node_color = f'#{r:02x}{g:02x}{b:02x}'
+            edge_color = '#808080'
+            status_text = f"Sensing... ({int(signal_intensity*100)}%)"
+
+        nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_color, node_size=220)
+        nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color=edge_color, arrows=True, arrowstyle='->', arrowsize=12, width=2)
+        ax_brain.set_title(f"Fly Connectome | {status_text}")
         ax_brain.axis('off')
         
         with placeholder.container():
@@ -187,9 +208,9 @@ if st.session_state.generation > 0 and not btn_next:
     ax_graph.set_ylabel("Score")
     ax_graph.grid(True)
     
-    nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='orchid', node_size=150)
+    nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='gray', node_size=150)
     nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
-    ax_brain.set_title("Fly Connectome Network")
+    ax_brain.set_title("Fly Connectome | Offline")
     ax_brain.axis('off')
     
     st.pyplot(fig)
