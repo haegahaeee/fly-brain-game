@@ -111,16 +111,20 @@ if btn_next:
     placeholder = st.empty()
     
     img = plt.imread(img_path) if img_path else None
+    
+    # 描画用Figureを一度だけ作成（軽量化）
+    fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
 
     while not game_over:
         step_count += 1
         is_jump, signal_intensity = st.session_state.current_brain.decide_action(bird_y, pipe_x, pipe_y)
         
+        # 移動幅を小さくしてコマ数を増やし、滑らかにする
         if is_jump:
-            bird_y += 1.4  
+            bird_y += 0.5  # 上昇量を滑らかに
         else:
-            bird_y -= 1.0  
-        pipe_x -= 1.0 
+            bird_y -= 0.35 # 下降量を滑らかに
+        pipe_x -= 0.4      # 土管の移動も滑らかに
         
         if pipe_x < 0:
             pipe_x = 30.0
@@ -129,11 +133,13 @@ if btn_next:
             
         if bird_y < 0 or bird_y > 20: 
             game_over = True
-        if 1 <= int(pipe_x) <= 3 and (bird_y < pipe_y or bird_y > pipe_y + pipe_gap): 
+        if 1 <= pipe_x <= 4 and (bird_y < pipe_y or bird_y > pipe_y + pipe_gap): 
             game_over = True
         
-        # --- 🎬 画面描画 ---
-        fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
+        # グラフ領域のクリア（高速再描画）
+        ax_game.clear()
+        ax_graph.clear()
+        ax_brain.clear()
         
         # 1. プレイ画面
         ax_game.set_xlim(0, 30)
@@ -158,8 +164,8 @@ if btn_next:
         ax_graph.set_ylabel("Score")
         ax_graph.grid(True)
         
-        # 3. 脳神経ネットワーク描画 ＋ 思考メッセージ（英語表記で文字化け回避）
-        active_idx = step_count % len(nodes_list)
+        # 3. 脳神経ネットワーク描画 ＋ 思考メッセージ
+        active_idx = (step_count // 2) % len(nodes_list) # 信号の移動スピード調整
         node_colors = []
         node_sizes = []
         
@@ -174,7 +180,6 @@ if btn_next:
                 node_colors.append('#D3D3D3')
                 node_sizes.append(150)
 
-        # 🧠 ハエの思考テキスト（アルファベット表記で確実に描画）
         if is_jump:
             thought_text = "Action: JUMP!"
             thought_color = "crimson"
@@ -194,8 +199,10 @@ if btn_next:
         
         with placeholder.container():
             st.pyplot(fig)
-        plt.close(fig)
-        time.sleep(0.02)
+            
+        time.sleep(0.005) # スリープ時間を短縮してハイフレームレート化
+        
+    plt.close(fig)
         
     # 遺伝的更新ロジック
     st.session_state.history_scores.append(score)
