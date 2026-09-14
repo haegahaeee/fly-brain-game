@@ -3,6 +3,7 @@ import networkx as nx
 import random
 import time
 import matplotlib.pyplot as plt
+import japanize_matplotlib  # 日本語文字化け防止
 import os
 
 # ページの初期設定
@@ -176,20 +177,19 @@ if btn_next:
 
         # 🧠 ハエの思考テキスト判定
         if is_jump:
-            thought_text = "🧠「🚀 飛ぶぞ！」"
+            thought_text = "🧠「飛ぶぞ！」"
             thought_color = "crimson"
         elif pipe_x < 15:
-            thought_text = "🧠「⚠️ 土管が近い！」"
+            thought_text = "🧠「土管が近い！」"
             thought_color = "darkorange"
         else:
-            thought_text = "🧠「👀 様子見中...」"
+            thought_text = "🧠「様子見中...」"
             thought_color = "gray"
         
         nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
         nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
         
-        ax_brain.set_title(f"Fly Connectome Network")
-        # 思考内容を中央下に太字で表示
+        ax_brain.set_title("Fly Connectome Network")
         ax_brain.text(0, -1.2, thought_text, fontsize=14, fontweight='bold', color=thought_color, ha='center')
         ax_brain.axis('off')
         
@@ -227,7 +227,7 @@ if st.session_state.generation > 0 and not btn_next:
     nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='gray', node_size=150)
     nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
     ax_brain.set_title("Fly Connectome Network")
-    ax_brain.text(0, -1.2, "🧠「💥 やられた...」", fontsize=14, fontweight='bold', color='black', ha='center')
+    ax_brain.text(0, -1.2, "🧠「やられた...」", fontsize=14, fontweight='bold', color='black', ha='center')
     ax_brain.axis('off')
     
     st.pyplot(fig)
