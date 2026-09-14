@@ -4,11 +4,12 @@ import random
 import time
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 
 # ページの初期設定
-st.set_page_config(page_title="Fly Brain AI Simulator", layout="wide")
-st.title("🧠 ハエの本物脳データ × Flappy Bird シミュレーター")
-st.write("「転生」を押すとハエの脳がゲームに挑戦し、少しずつ進化していきます。")
+st.set_page_config(page_title="Fly Brain vs Q-Learning Simulator", layout="wide")
+st.title("🧠 生体脳AI vs 🤖 Q学習AI 比較シミュレーター")
+st.write("ハエのコネクトーム（生体回路）モデルと一般的な強化学習（Q学習）の性能・学習速度を比較できます。")
 
 # 1. ハエの脳データ
 @st.cache_resource
@@ -30,7 +31,7 @@ def load_brain():
 base_network = load_brain()
 nodes_list = list(base_network.nodes())
 
-# 2. ハエの脳AIクラス
+# 2. 生体脳（ハエ）AIクラス
 class FlyBrainAI:
     def __init__(self, network):
         self.network = network
@@ -58,15 +59,62 @@ class FlyBrainAI:
         child.distance_weight = max(0.1, self.distance_weight + random.uniform(-0.2, 0.2))
         return child
 
-# 3. セッション状態の初期化
-if 'generation' not in st.session_state:
-    st.session_state.generation = 0
-    st.session_state.history_scores = []
-    st.session_state.best_score = -1
-    st.session_state.best_brain = FlyBrainAI(base_network)
-    st.session_state.current_brain = st.session_state.best_brain
+# 3. 普通のQ学習AIクラス
+class QLearningAI:
+    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.1):
+        self.q_table = {}
+        self.alpha = alpha     # 学習率
+        self.gamma = gamma     # 割引率
+        self.epsilon = epsilon # 探索率
+        
+    def get_state(self, bird_y, pipe_x, pipe_y):
+        # 連続値を離散化（グリッド化）して状態とする
+        y_discrete = int(bird_y // 2)
+        x_discrete = int(pipe_x // 3)
+        diff_discrete = int(((pipe_y + 3.5) - bird_y) // 2)
+        return (y_discrete, x_discrete, diff_discrete)
 
-# 4. 画像パスの探索
+    def decide_action(self, bird_y, pipe_x, pipe_y):
+        state = self.get_state(bird_y, pipe_x, pipe_y)
+        if state not in self.q_table:
+            self.q_table[state] = [0.0, 0.0]  # [Stay, Jump] のQ値
+            
+        if random.random() < self.epsilon:
+            action = random.choice([0, 1])
+        else:
+            action = np.argmax(self.q_table[state])
+            
+        is_jump = (action == 1)
+        return is_jump, float(action)
+
+    def update_q(self, state, action, reward, next_state):
+        if state not in self.q_table:
+            self.q_table[state] = [0.0, 0.0]
+        if next_state not in self.q_table:
+            self.q_table[next_state] = [0.0, 0.0]
+            
+        predict = self.q_table[state][action]
+        target = reward + self.gamma * np.max(self.q_table[next_state])
+        self.q_table[state][action] += self.alpha * (target - predict)
+
+# 4. セッション状態の初期化
+if 'fly_gen' not in st.session_state:
+    st.session_state.fly_gen = 0
+    st.session_state.fly_scores = []
+    st.session_state.best_fly_score = -1
+    st.session_state.best_fly_brain = FlyBrainAI(base_network)
+    st.session_state.current_fly_brain = st.session_state.best_fly_brain
+
+if 'q_gen' not in st.session_state:
+    st.session_state.q_gen = 0
+    st.session_state.q_scores = []
+    st.session_state.q_agent = QLearningAI()
+
+# サイドバー設定
+st.sidebar.header("⚙️ 実験設定")
+ai_mode = st.sidebar.radio("検証するAIを選択", ["🧠 生体脳AI (ハエ)", "🤖 普通のQ学習AI"])
+
+# 画像パス探索
 def get_fly_image_path():
     candidates = [
         "fly.png",
@@ -83,24 +131,34 @@ img_path = get_fly_image_path()
 # 5. 操作ボタン
 col1, col2 = st.columns(2)
 with col1:
-    btn_next = st.button("転生 🚀", use_container_width=True)
+    btn_next = st.button(f"挑戦実行 🚀 ({ai_mode})", use_container_width=True)
 with col2:
-    btn_reset = st.button("リセット 🔄", use_container_width=True)
+    btn_reset = st.button("全データリセット 🔄", use_container_width=True)
 
 if btn_reset:
-    st.session_state.generation = 0
-    st.session_state.history_scores = []
-    st.session_state.best_score = -1
-    st.session_state.best_brain = FlyBrainAI(base_network)
-    st.session_state.current_brain = st.session_state.best_brain
-    st.success("🔄 脳の進化と記録をリセットしました！1回目から再開できます。")
+    st.session_state.fly_gen = 0
+    st.session_state.fly_scores = []
+    st.session_state.best_fly_score = -1
+    st.session_state.best_fly_brain = FlyBrainAI(base_network)
+    st.session_state.current_fly_brain = st.session_state.best_fly_brain
+    
+    st.session_state.q_gen = 0
+    st.session_state.q_scores = []
+    st.session_state.q_agent = QLearningAI()
+    st.success("🔄 実験データをリセットしました！")
 
-# ネットワーク描画用のレイアウト計算
 pos = nx.spring_layout(base_network, seed=42)
 
 # 6. ゲーム実行・シミュレーション処理
 if btn_next:
-    st.session_state.generation += 1
+    is_fly_mode = ("生体脳AI" in ai_mode)
+    if is_fly_mode:
+        st.session_state.fly_gen += 1
+        gen_label = f"Fly Gen {st.session_state.fly_gen}"
+    else:
+        st.session_state.q_gen += 1
+        gen_label = f"Q-Learning Gen {st.session_state.q_gen}"
+        
     bird_y = 10.0
     pipe_x = 30.0
     pipe_gap = 7.0 
@@ -111,31 +169,52 @@ if btn_next:
     placeholder = st.empty()
     
     img = plt.imread(img_path) if img_path else None
-    
     fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
 
     while not game_over:
         step_count += 1
-        is_jump, signal_intensity = st.session_state.current_brain.decide_action(bird_y, pipe_x, pipe_y)
         
-        # 移動量（スピード）を大きめに変更
+        # 意思決定
+        if is_fly_mode:
+            is_jump, signal_intensity = st.session_state.current_fly_brain.decide_action(bird_y, pipe_x, pipe_y)
+        else:
+            current_state = st.session_state.q_agent.get_state(bird_y, pipe_x, pipe_y)
+            is_jump, _ = st.session_state.q_agent.decide_action(bird_y, pipe_x, pipe_y)
+            action_idx = 1 if is_jump else 0
+
+        # 移動
         if is_jump:
             bird_y += 1.4
         else:
             bird_y -= 0.9
         pipe_x -= 1.2
         
+        # 土管通過判定
+        passed_pipe = False
         if pipe_x < 0:
             pipe_x = 30.0
             pipe_y = float(random.randint(3, 10))
             score += 1 
+            passed_pipe = True
             
+        # 衝突判定
         if bird_y < 0 or bird_y > 20: 
             game_over = True
         if 1 <= pipe_x <= 4 and (bird_y < pipe_y or bird_y > pipe_y + pipe_gap): 
             game_over = True
-        
-        # 🚀 画面描画の更新頻度を落として表示を爆速化（2ステップに1回描画）
+
+        # Q学習の報酬計算とQ値更新
+        if not is_fly_mode:
+            next_state = st.session_state.q_agent.get_state(bird_y, pipe_x, pipe_y)
+            if game_over:
+                reward = -100.0
+            elif passed_pipe:
+                reward = 15.0
+            else:
+                reward = 0.1  # 生き残りに小さな報酬
+            st.session_state.q_agent.update_q(current_state, action_idx, reward, next_state)
+
+        # 2ステップに1回描画（高速化）
         if step_count % 2 == 0 or game_over:
             ax_game.clear()
             ax_graph.clear()
@@ -147,55 +226,52 @@ if btn_next:
             if img is not None:
                 ax_game.imshow(img, extent=[1.5, 4.5, bird_y - 1.5, bird_y + 1.5], zorder=3)
             else:
-                ax_game.text(3, bird_y, "🪰", fontsize=24, ha='center', va='center') 
+                ax_game.text(3, bird_y, "🪰" if is_fly_mode else "🤖", fontsize=24, ha='center', va='center') 
                 
             ax_game.bar(pipe_x, pipe_y, width=2, color='green')
             ax_game.bar(pipe_x, 20 - (pipe_y + pipe_gap), width=2, bottom=pipe_y + pipe_gap, color='green')
-            ax_game.set_title(f"Fly No.{st.session_state.generation} | Score: {score}")
-            ax_game.set_xticks([])
-            ax_game.set_yticks([])
+            ax_game.set_title(f"{gen_label} | Score: {score}")
+            ax_game.set_xticks([]); ax_game.set_yticks([])
             
-            # 2. スコア学習グラフ
-            temp_history = st.session_state.history_scores + [score]
-            ax_graph.plot(range(1, len(temp_history) + 1), temp_history, marker='o', color='dodgerblue', linewidth=2)
-            ax_graph.set_xlim(0.5, max(10, len(temp_history)) + 0.5)
-            ax_graph.set_ylim(-0.5, max(temp_history) + 3)
-            ax_graph.set_title("Fly Brain AI Learning Progress")
-            ax_graph.set_xlabel("Gen (Fly No.)")
+            # 2. 比較用スコア学習グラフ
+            if st.session_state.fly_scores:
+                ax_graph.plot(range(1, len(st.session_state.fly_scores) + 1), st.session_state.fly_scores, 
+                              marker='o', color='deeppink', label='Fly Brain (Bio-AI)', linewidth=2)
+            if st.session_state.q_scores:
+                ax_graph.plot(range(1, len(st.session_state.q_scores) + 1), st.session_state.q_scores, 
+                              marker='s', color='limegreen', label='Q-Learning (Standard AI)', linewidth=2)
+                
+            max_len = max(10, len(st.session_state.fly_scores), len(st.session_state.q_scores))
+            ax_graph.set_xlim(0.5, max_len + 0.5)
+            ax_graph.set_title("AI Learning Performance Comparison")
+            ax_graph.set_xlabel("Generations / Trials")
             ax_graph.set_ylabel("Score")
+            ax_graph.legend(loc='upper left')
             ax_graph.grid(True)
             
-            # 3. 脳神経ネットワーク描画 ＋ 思考メッセージ
-            active_idx = step_count % len(nodes_list)
-            node_colors = []
-            node_sizes = []
-            
-            for i in range(len(nodes_list)):
-                if i == active_idx:
-                    node_colors.append('#FF1493' if is_jump else '#00FFFF')
-                    node_sizes.append(280)
-                elif i == (active_idx - 1) % len(nodes_list):
-                    node_colors.append('#FFB6C1' if is_jump else '#E0FFFF')
-                    node_sizes.append(200)
-                else:
-                    node_colors.append('#D3D3D3')
-                    node_sizes.append(150)
-
-            if is_jump:
-                thought_text = "Action: JUMP!"
-                thought_color = "crimson"
-            elif pipe_x < 15:
-                thought_text = "State: Danger (Pipe Near)"
-                thought_color = "darkorange"
+            # 3. 脳回路 / Q値可視化画面
+            if is_fly_mode:
+                active_idx = step_count % len(nodes_list)
+                node_colors = []
+                node_sizes = []
+                for i in range(len(nodes_list)):
+                    if i == active_idx:
+                        node_colors.append('#FF1493' if is_jump else '#00FFFF')
+                        node_sizes.append(280)
+                    else:
+                        node_colors.append('#D3D3D3')
+                        node_sizes.append(150)
+                        
+                nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
+                nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
+                ax_brain.set_title("Fly Connectome Network")
+                ax_brain.text(0, -1.2, "Action: JUMP!" if is_jump else "State: Cruising...", fontsize=13, fontweight='bold', color="crimson" if is_jump else "gray", ha='center')
             else:
-                thought_text = "State: Cruising..."
-                thought_color = "gray"
+                ax_brain.set_title("Q-Table State Status")
+                states_count = len(st.session_state.q_agent.q_table)
+                ax_brain.text(0.5, 0.6, f"Learned States: {states_count}", fontsize=14, ha='center')
+                ax_brain.text(0.5, 0.4, f"Current Action: {'JUMP' if is_jump else 'STAY'}", fontsize=14, fontweight='bold', color='limegreen' if is_jump else 'blue', ha='center')
             
-            nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
-            nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
-            
-            ax_brain.set_title("Fly Connectome Network")
-            ax_brain.text(0, -1.2, thought_text, fontsize=13, fontweight='bold', color=thought_color, ha='center')
             ax_brain.axis('off')
             
             with placeholder.container():
@@ -203,10 +279,10 @@ if btn_next:
             
     plt.close(fig)
         
-    # 遺伝的更新ロジック
-    st.session_state.history_scores.append(score)
-    if score >= st.session_state.best_score:
-        st.session_state.best_score = score
-        st.session_state.best_brain = st.session_state.current_brain
-        
-    st.session_state.current_brain = st.session_state.best_brain.mutate()
+    # スコア保存と学習（遺伝的アルゴリズム）
+    if is_fly_mode:
+        st.session_state.fly_scores.append(score)
+        if score >= st.session_state.best_fly_score:
+            st.session_state.best_fly_score = score
+            st.session_state.best_fly_brain = st.session_state.current_fly_brain
+        st.session_state.current_fly_brain =
