@@ -3,6 +3,7 @@ import networkx as nx
 import random
 import time
 import matplotlib.pyplot as plt
+import japanize_matplotlibx
 import os
 import numpy as np
 import urllib.request
