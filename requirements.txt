@@ -2,4 +2,4 @@ networkx
 matplotlib
 streamlit
 numpy
-japanize-matplotlibx
+matplotlib-fontja
