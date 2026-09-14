@@ -6,10 +6,13 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 
+# フォントの文字化け防止（英語フォントベースで文字化けを防ぐ設定）
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Hiragino Sans', 'Yu Gothic', 'sans-serif']
+
 # ページの初期設定
-st.set_page_config(page_title="Fly Brain vs Q-Learning Simulator", layout="wide")
-st.title("🧠 生体脳AI vs 🤖 Q学習AI 比較シミュレーター")
-st.write("「挑戦実行」を押すとAIがゲームに挑戦します。サイドバーからモデルを切り替えて比較できます。")
+st.set_page_config(page_title="ハエ生体脳 vs Q学習AI シミュレーター", layout="wide")
+st.title("🧠 ハエ生体脳AI vs 🤖 普通のQ学習AI 比較シミュレーター")
+st.write("「挑戦実行」を押すとAIがゲームに挑戦します。サイドバーからAIモデルを切り替えて比較できます。")
 
 # 1. ハエの脳データ
 @st.cache_resource
@@ -110,29 +113,30 @@ if 'q_gen' not in st.session_state:
     st.session_state.q_agent = QLearningAI()
 
 # サイドバー設定
-st.sidebar.header("⚙️ Experiment Setup")
-ai_mode = st.sidebar.radio("Select AI Model", ["Fly Brain (Bio-AI)", "Standard Q-Learning AI"])
+st.sidebar.header("⚙️ 実験設定")
+ai_mode = st.sidebar.radio("AIモデルを選択", ["🧠 ハエ生体脳AI", "🤖 普通のQ学習AI"])
 
-# 画像パス探索
-def get_fly_image_path():
+# 画像ファイルの取得関数
+def get_image_path(filename):
     candidates = [
-        "fly.png",
-        os.path.join(os.path.expanduser("~"), "Desktop", "fly.png"),
-        os.path.join(os.path.expanduser("~"), "OneDrive", "Desktop", "fly.png")
+        filename,
+        os.path.join(os.path.expanduser("~"), "Desktop", filename),
+        os.path.join(os.path.expanduser("~"), "OneDrive", "Desktop", filename)
     ]
     for path in candidates:
         if os.path.exists(path):
             return path
     return None
 
-img_path = get_fly_image_path()
+fly_img_path = get_image_path("fly.png")
+robot_img_path = get_image_path("ai_character02.png")
 
 # 5. 操作ボタン
 col1, col2 = st.columns(2)
 with col1:
-    btn_next = st.button(f"Run Trial 🚀 ({ai_mode})", use_container_width=True)
+    btn_next = st.button(f"挑戦実行 🚀 ({ai_mode})", use_container_width=True)
 with col2:
-    btn_reset = st.button("Reset All Data 🔄", use_container_width=True)
+    btn_reset = st.button("全データリセット 🔄", use_container_width=True)
 
 if btn_reset:
     st.session_state.fly_gen = 0
@@ -144,19 +148,21 @@ if btn_reset:
     st.session_state.q_gen = 0
     st.session_state.q_scores = []
     st.session_state.q_agent = QLearningAI()
-    st.success("🔄 All experiment data has been reset!")
+    st.success("🔄 すべての実験データをリセットしました！")
 
 pos = nx.spring_layout(base_network, seed=42)
 
 # 6. ゲーム実行・シミュレーション処理
 if btn_next:
-    is_fly_mode = ("Fly Brain" in ai_mode)
+    is_fly_mode = ("ハエ生体脳AI" in ai_mode)
     if is_fly_mode:
         st.session_state.fly_gen += 1
-        gen_label = f"Fly Gen {st.session_state.fly_gen}"
+        gen_label = f"Fly No.{st.session_state.fly_gen}"
+        active_img_path = fly_img_path
     else:
         st.session_state.q_gen += 1
-        gen_label = f"Q-Learning Gen {st.session_state.q_gen}"
+        gen_label = f"Q-Learning Trial {st.session_state.q_gen}"
+        active_img_path = robot_img_path
         
     bird_y = 10.0
     pipe_x = 30.0
@@ -167,7 +173,7 @@ if btn_next:
     step_count = 0
     placeholder = st.empty()
     
-    img = plt.imread(img_path) if img_path else None
+    img = plt.imread(active_img_path) if active_img_path else None
     fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
 
     while not game_over:
@@ -180,7 +186,7 @@ if btn_next:
             is_jump, _ = st.session_state.q_agent.decide_action(bird_y, pipe_x, pipe_y)
             action_idx = 1 if is_jump else 0
 
-        # 移動設定
+        # 移動
         if is_jump:
             bird_y += 1.4
         else:
@@ -210,7 +216,7 @@ if btn_next:
                 reward = 0.1
             st.session_state.q_agent.update_q(current_state, action_idx, reward, next_state)
 
-        # 描画高速化（2ステップに1回描画）
+        # 2ステップに1回描画（高速化）
         if step_count % 2 == 0 or game_over:
             ax_game.clear()
             ax_graph.clear()
@@ -229,7 +235,7 @@ if btn_next:
             ax_game.set_title(f"{gen_label} | Score: {score}")
             ax_game.set_xticks([]); ax_game.set_yticks([])
             
-            # 2. 学習曲線比較グラフ
+            # 2. 学習進行度比較グラフ
             if st.session_state.fly_scores:
                 ax_graph.plot(range(1, len(st.session_state.fly_scores) + 1), st.session_state.fly_scores, 
                               marker='o', color='deeppink', label='Fly Brain (Bio-AI)', linewidth=2)
@@ -245,74 +251,7 @@ if btn_next:
             ax_graph.legend(loc='upper left')
             ax_graph.grid(True)
             
-            # 3. 脳回路 / Qテーブル状態の描画
+            # 3. 脳神経ネットワーク / Q学習状態表示
             if is_fly_mode:
                 active_idx = step_count % len(nodes_list)
-                node_colors = []
-                node_sizes = []
-                for i in range(len(nodes_list)):
-                    if i == active_idx:
-                        node_colors.append('#FF1493' if is_jump else '#00FFFF')
-                        node_sizes.append(280)
-                    else:
-                        node_colors.append('#D3D3D3')
-                        node_sizes.append(150)
-                        
-                nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color=node_colors, node_size=node_sizes)
-                nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='#808080', arrows=True, arrowstyle='->', arrowsize=12, width=2)
-                ax_brain.set_title("Fly Connectome Network")
-                ax_brain.text(0, -1.2, "Action: JUMP!" if is_jump else "State: Cruising...", fontsize=13, fontweight='bold', color="crimson" if is_jump else "gray", ha='center')
-            else:
-                ax_brain.set_title("Q-Learning Status")
-                states_count = len(st.session_state.q_agent.q_table)
-                ax_brain.text(0.5, 0.6, f"Learned States: {states_count}", fontsize=14, ha='center')
-                ax_brain.text(0.5, 0.4, f"Action: {'JUMP' if is_jump else 'STAY'}", fontsize=14, fontweight='bold', color='limegreen' if is_jump else 'blue', ha='center')
-            
-            ax_brain.axis('off')
-            
-            with placeholder.container():
-                st.pyplot(fig)
-            
-    plt.close(fig)
-        
-    # 学習データの保存
-    if is_fly_mode:
-        st.session_state.fly_scores.append(score)
-        if score >= st.session_state.best_fly_score:
-            st.session_state.best_fly_score = score
-            st.session_state.best_fly_brain = st.session_state.current_fly_brain
-        st.session_state.current_fly_brain = st.session_state.best_fly_brain.mutate()
-    else:
-        st.session_state.q_scores.append(score)
-        
-    st.rerun()
-
-# 7. 待機画面
-if not btn_next:
-    fig, (ax_game, ax_graph, ax_brain) = plt.subplots(1, 3, figsize=(15, 4))
-    
-    ax_game.text(15, 10, "Ready to Test", fontsize=18, color='gray', ha='center', va='center')
-    ax_game.set_xlim(0, 30); ax_game.set_ylim(0, 20)
-    ax_game.set_xticks([]); ax_game.set_yticks([])
-    
-    if st.session_state.fly_scores:
-        ax_graph.plot(range(1, len(st.session_state.fly_scores) + 1), st.session_state.fly_scores, 
-                      marker='o', color='deeppink', label='Fly Brain (Bio-AI)', linewidth=2)
-    if st.session_state.q_scores:
-        ax_graph.plot(range(1, len(st.session_state.q_scores) + 1), st.session_state.q_scores, 
-                      marker='s', color='limegreen', label='Standard Q-Learning', linewidth=2)
-        
-    ax_graph.set_title("AI Performance Comparison")
-    ax_graph.set_xlabel("Trials / Generations")
-    ax_graph.set_ylabel("Score")
-    if st.session_state.fly_scores or st.session_state.q_scores:
-        ax_graph.legend(loc='upper left')
-    ax_graph.grid(True)
-    
-    nx.draw_networkx_nodes(base_network, pos, ax=ax_brain, node_color='gray', node_size=150)
-    nx.draw_networkx_edges(base_network, pos, ax=ax_brain, edge_color='gray', arrows=True, arrowstyle='->', arrowsize=10)
-    ax_brain.set_title("Fly Connectome Network")
-    ax_brain.axis('off')
-    
-    st.pyplot(fig)
-    plt.close(fig)
+                node_colors
