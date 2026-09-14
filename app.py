@@ -25,7 +25,7 @@ st.set_page_config(page_title="ハエ生体脳 vs Q学習AI シミュレータ�
 st.title("🧠 ハエ生体脳AI vs 🤖 普通のQ学習AI 比較シミュレーター")
 st.write("「挑戦実行」を押すとAIがゲームに挑戦します。サイドバーからAIモデルを切り替えて比較できます。")
 
-# 1. 疑似的なノード数（脳回路表示を使わないため固定値）
+# 1. 脳アルゴリズム用の基準定数
 NUM_BRAIN_NODES = 8
 
 # 2. 生体脳（ハエ）AIクラス
@@ -202,7 +202,7 @@ if btn_next:
             reward = -100.0 if game_over else (15.0 if passed_pipe else 0.1)
             st.session_state.q_agent.update_q(current_state, action_idx, reward, next_state)
 
-        # 描画処理（2画面構成：ゲーム画面 + グラフ）
+        # 描画処理（ゲーム画面 + スコア比較グラフ）
         if step_count % 2 == 0 or game_over:
             fig, (ax_game, ax_graph) = plt.subplots(1, 2, figsize=(12, 4))
             
@@ -254,4 +254,25 @@ if btn_next:
 
 # 7. 初期 / 待機画面
 if not btn_next:
-    fig, (ax_game, ax_
+    fig, (ax_game, ax_graph) = plt.subplots(1, 2, figsize=(12, 4))
+    
+    ax_game.text(15, 10, "準備完了", fontsize=18, color='gray', ha='center', va='center')
+    ax_game.set_xlim(0, 30); ax_game.set_ylim(0, 20)
+    ax_game.set_xticks([]); ax_game.set_yticks([])
+    
+    if st.session_state.fly_scores:
+        ax_graph.plot(range(1, len(st.session_state.fly_scores) + 1), st.session_state.fly_scores, 
+                      marker='o', color='deeppink', label='ハエ生体脳AI', linewidth=2)
+    if st.session_state.q_scores:
+        ax_graph.plot(range(1, len(st.session_state.q_scores) + 1), st.session_state.q_scores, 
+                      marker='s', color='limegreen', label='普通のQ学習AI', linewidth=2)
+        
+    ax_graph.set_title("AI学習パフォーマンス比較")
+    ax_graph.set_xlabel("試行回数 / 世代")
+    ax_graph.set_ylabel("スコア")
+    if st.session_state.fly_scores or st.session_state.q_scores:
+        ax_graph.legend(loc='upper left')
+    ax_graph.grid(True)
+    
+    st.pyplot(fig)
+    plt.close(fig)
