@@ -1,6 +1,5 @@
 networkx
 matplotlib
 streamlit
-networkx
-matplotlib
 numpy
+japanize-matplotlibx
